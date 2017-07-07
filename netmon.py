@@ -1,6 +1,8 @@
 import argparse
 import ipaddress
+import concurrent.futures
 
+MAX_THREADS = 4 #number of threads
 DEFAULT_TIMEOUT_SEC = 1
 
 
@@ -66,6 +68,11 @@ def finalIPiter(rawList, networkObj):
             print('{} is not in {} network. It will be ignored.'.format(addrStr, str(networkObj)))
 
 
+#testing purposes
+def dummy_ping(ip):
+    return ("127.0.0."+str(ip), "online", 0)
+
+
 def main(args):
     pass
 
@@ -98,6 +105,12 @@ if __name__ == '__main__':
                         metavar='interface',
                         help='Name if network interface')
 
-    args_ = parser.parse_args()
+    #args_ = parser.parse_args()
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_THREADS) as ThreadManager:
+    future_to_ping = {ThreadManager.submit(dummy_ping, ip): ip for ip in range(25)}
+    for future in concurrent.futures.as_completed(future_to_ping):
+        res = future.result()
+        print(res)
 
     main(args_)
