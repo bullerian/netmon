@@ -108,9 +108,9 @@ if __name__ == '__main__':
     #args_ = parser.parse_args()
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_THREADS) as ThreadManager:
-    future_to_ping = {ThreadManager.submit(dummy_ping, ip): ip for ip in range(25)}
-    for future in concurrent.futures.as_completed(future_to_ping):
-        res = future.result()
-        print(res)
+        future_to_ping = {ThreadManager.submit(dummy_ping, ip): ip for ip in range(25)}
+        for future in concurrent.futures.as_completed(future_to_ping):
+            res = future.result()
+            print(res) #u can append to a list or smth, whatever the output needs
 
     main(args_)
