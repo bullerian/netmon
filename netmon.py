@@ -160,7 +160,7 @@ def main():
                 host, st, time = thread.result()
                 # print_result(host, st, time)
                 print_online(host, st, time)
-            except Ping.PermissionException:
+            except ping.PermissionException:
                 print('You need to have root rights to run this.')
                 break
 
