@@ -27,10 +27,33 @@ class TestARPPing(unittest.TestCase):
                 res = arp_ping.ping_host(str(ip))
             except PermissionException:
                 print('Need root previlegies')
-                if res[STATUS_INDEX] == ONLINE:
-                    self.assertTrue(ec == 0)
-                else:
-                    self.assertFalse(ec == 0)
+
+            if res[STATUS_INDEX] == ONLINE:
+                self.assertTrue(ec == 0)
+            else:
+                self.assertFalse(ec == 0)
+
+class TestICMPPing(unittest.TestCase):
+    """Tests for ping"""
+
+    def test_icmp_ping(self):
+        """test icmp ping - compare to icmping utilite"""
+
+        icmp_ping = ICMPPing('wlp2s0')
+
+        for ip in ipaddress.ip_network(TEST_NETWORK).hosts():
+            try:
+                # need arping installed
+                with os.popen('ping -c {} {}'.format(COUNT, str(ip)), 'r'):
+                    # get exit code
+                    ec = os.wait()[1] & 0xFF00
+                res = icmp_ping.ping_host(str(ip))
+            except PermissionException:
+                print('Need root previlegies')
+            if res[STATUS_INDEX] == ONLINE:
+                self.assertTrue(ec == 0)
+            else:
+                self.assertFalse(ec == 0)
 
 
 if __name__ == '__main__':

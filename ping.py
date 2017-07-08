@@ -105,4 +105,48 @@ class ARPPing(Ping):
 class ICMPPing(Ping):
     """Ping using ICMP protocol"""
 
-    pass
+    def __init__(self, iface, timeout=DEFAULT_TIMEOUT):
+        """init queue and timeout; form a template of Ethernet packet
+        and make alias for scapy.srp function"""
+
+        # call base Ping class constructor
+        super().__init__(iface, timeout)
+
+        # form a template packet
+        self.__packet_template = scapy.Ether(dst=BROADCATS_MAC)
+
+        # alias for scapy.srp
+        self.__send_recv_ICMP = partial(
+            scapy.srp,
+            iface = self._iface,
+            filter=ICMP_NAME,
+            timeout=self._timeout,
+            verbose=DEFAULT_SCAPY_VERBOUS)
+
+    def ping_host(self, ip):
+        """method to create ICMP packet, send and receive response
+        from the host with @io address with timeout"""
+
+        # form an ICMP packet
+        icmp_packet = self.__packet_template/scapy.IP(dst=ip)/scapy.ICMP()
+
+        try:
+            # send and wait for response
+            answers, unanswers = self.__send_recv_ICMP(icmp_packet)
+        except PermissionError:
+            raise PermissionException
+
+        if answers:
+            answer = answers[FIRST_INDEX]
+            # get the request object
+            req = answer[REQUEST_INDEX]
+            # get the response object
+            resp = answer[RESPONSE_INDEX]
+            # calculate response time and round it
+            delta = round((resp.time-req.sent_time)*TO_MS, DEFAUTL_TIME_PREC)
+            return resp.src, ONLINE, delta
+        else:
+            # return unansered results
+            unanswer = unanswers[FIRST_INDEX]
+            resp = unanswer[RESPONSE_INDEX]
+            return resp.dst, OFFLINE
