@@ -3,6 +3,30 @@ import ipaddress
 
 DEFAULT_TIMEOUT_SEC = 1
 
+HOST_WIDTH = 18
+STATUS_WIDTH = 12
+MILISECOND = 'ms'
+STATUS_TEMPALE = '[{}]'
+HEDER = 'Host              Status'
+HEDER_WITH_TIME = 'Host              Status      Time'
+
+
+def print_heder(time=False):
+    """Print title for output"""
+    if time:
+        print(HEDER_WITH_TIME)
+    else:
+        print(HEDER)
+
+
+def print_result(host, status, time=''):
+    """Format and print result"""
+    host = str(host).ljust(HOST_WIDTH)
+    status = STATUS_TEMPALE.format(str(status)).ljust(STATUS_WIDTH)
+    if time:
+        time = "   " + str(time) + MILISECOND
+    print(host, status, time, sep='')
+
 
 def ipnet(net_str):
     """
@@ -64,6 +88,7 @@ def finalIPiter(rawList, networkObj):
             yield addrsObj
         else:
             print('{} is not in {} network. It will be ignored.'.format(addrStr, str(networkObj)))
+
 
 
 def main(args):
