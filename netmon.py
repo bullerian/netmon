@@ -1,7 +1,45 @@
+#!/usr/bin/env python3
+
 import argparse
 import ipaddress
+import concurrent.futures
+from concurrent.futures import ThreadPoolExecutor as TPool
+from concurrent.futures import as_completed
 
+
+import ping
+
+MAX_THREADS = 4 #number of threads
 DEFAULT_TIMEOUT_SEC = 1
+ARP_NAME = 'arp'
+ICMP_NAME = 'icmp'
+
+HOST_WIDTH = 18
+STATUS_WIDTH = 12
+MILISECOND = 'ms'
+STATUS_TEMPALE = '[{}]'
+HEDER = 'Host              Status      Time'
+DEFAULT_TIME_OUTPUT = "---"
+
+def print_heder():
+    """Print title for output"""
+    print(HEDER)
+
+
+def print_result(host, status, time):
+    """Format and print result"""
+    host = str(host).ljust(HOST_WIDTH)
+    status = STATUS_TEMPALE.format(str(status)).ljust(STATUS_WIDTH)
+    if time:
+        time = str(round(time*1000, 2)) + MILISECOND
+    else:
+        time = DEFAULT_TIME_OUTPUT
+    print(host, status, time, sep='')
+
+
+def print_online(host, status, time):
+    if status == "ONLINE":
+        print_result(host, status, time)
 
 
 class Utilities:
@@ -49,6 +87,7 @@ class Utilities:
                             type=Utilities._ipnet,
                             help='IPv4 network address in form A.B.C.D/mask')
         parser.add_argument('-n',
+                            '--p_hostname',
                             action='store_true',
                             help='Show host IPs instead of names')
         parser.add_argument('-t',
@@ -58,8 +97,10 @@ class Utilities:
                             metavar='timeout',
                             help='Timeout in seconds')
         parser.add_argument('-a',
-                            '--arp',
-                            action='store_true',
+                            '--ARP',
+                            action='store_const',
+                            const=ARP_NAME,
+                            default=ICMP_NAME,
                             help='Use ARP instead if ICMP')
         parser.add_argument('-r',
                             '--refresh',
@@ -71,10 +112,6 @@ class Utilities:
                             type=Utilities._raw_ip_list,
                             metavar='list',
                             help='Path to list of host IPs to check')
-        parser.add_argument('-i',
-                            type=str,
-                            metavar='interface',
-                            help='Name if network interface')
 
         return parser.parse_args()
 
@@ -85,7 +122,6 @@ class AddressIter:
     representation. Address related errors are printed unless verbose is set to
     False.
     """
-
     def __init__(self, raw_list, network_obj, verbose=True):
         """
         Initializes object
@@ -117,12 +153,12 @@ class AddressIter:
                 self.__index += 1
                 addrs_obj = ipaddress.ip_address(addr_str)
             except (ValueError, UnboundLocalError):
-                self.__print_out('"{}" is not a valid IPv4 address. '
-                                 'It will be ignored.'.format(addr_str))
+                self.__print_out('"{}" is not a valid IPv4 address and '
+                                 'will be ignored.'.format(addr_str))
                 continue
 
             if not self.is_acceptable(addrs_obj):
-                self.__print_out('"{}" is not in network "{}". It will be '
+                self.__print_out('"{}" is not in network "{}" and will be '
                                  'ignored.'.format(addr_str, self._ip_net_obj))
                 continue
 
@@ -152,11 +188,36 @@ class AddressIter:
 
 
 def main():
-    parsed_args = Utilities.input_parser()
+    args = Utilities.input_parser()
 
     # object for iteration
-    ip_iter_obj = AddressIter(parsed_args.IP_list, parsed_args.ip_network)
+    ip_iter_obj = AddressIter(args.IP_list, args.ip_network)
+
+    proto = args.ARP
+    pinger = ping.Ping(proto,
+                       args.timeout,
+                       args.p_hostname)
+
+    network = args.ip_network
+
+    print_heder()
+
+    with TPool() as TManager:
+        future_to_ping = [
+            TManager.submit(pinger.ping_host, str(ip)) for ip in
+            network.hosts()
+        ]
+        for thread in as_completed(future_to_ping):
+            try:
+                host, st, time = thread.result()
+                # print_result(host, st, time)
+                print_online(host, st, time)
+            except ping.PermissionException:
+                print('You need to have root rights to run this.')
+                break
 
 
+if __name__ == '__main__':
+    main()
 
 
