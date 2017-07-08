@@ -56,7 +56,7 @@ class Ping:
     }
 
     def __init__(self,
-                 iface,
+                 # iface,
                  proto_type=ICMP_NAME,
                  timeout=DEFAULT_TIMEOUT,
                  resolve_names=DEFAULT_RESOLV):
@@ -69,14 +69,14 @@ class Ping:
                                 protocol we use
         """
 
-        self.__iface = iface
+        # self.__iface = iface
         self.__timeout = timeout
         self.__resolve_names = resolve_names
         self.__gen_packet = Ping.packets_generators[proto_type]
 
         # alias to scapy send_receive packet method
         self.__send_recv = partial(scapy.srp,
-                                   iface=self.__iface,
+                                   # iface=self.__iface,
                                    filter=proto_type,
                                    timeout=self.__timeout,
                                    verbose=DEFAULT_SCAPY_VERBOUS)
@@ -120,3 +120,4 @@ class Ping:
             unanswer = unanswers[FIRST_INDEX]
             resp = unanswer[RESPONSE_INDEX]
             return host, OFFLINE, None
+
