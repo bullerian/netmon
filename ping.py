@@ -49,8 +49,7 @@ class Ping:
     packets_generators = {
         ARP_NAME: lambda ip: scapy.Ether(
             dst=BROADCATS_MAC) / scapy.ARP(pdst=ip),
-        ICMP_NAME: lambda ip: scapy.Ether(
-            dst=BROADCATS_MAC) / scapy.IP(
+        ICMP_NAME: lambda ip: scapy.IP(
             dst=ip) / scapy.ICMP()
     }
 
@@ -73,7 +72,11 @@ class Ping:
         self.__gen_packet = Ping.packets_generators[proto_type]
 
         # alias to scapy send_receive packet method
-        self.__send_recv = partial(scapy.srp,
+        if proto_type == ARP_NAME:
+            function = scapy.srp
+        elif proto_type == ICMP_NAME:
+            function = scapy.sr
+        self.__send_recv = partial(function,
                                    # iface=self.__iface,
                                    filter=proto_type,
                                    timeout=self.__timeout,
@@ -118,4 +121,3 @@ class Ping:
             unanswer = unanswers[FIRST_INDEX]
             resp = unanswer[RESPONSE_INDEX]
             return host, OFFLINE, None
-

@@ -3,35 +3,45 @@
 import argparse
 import ipaddress
 import concurrent.futures
+from concurrent.futures import ThreadPoolExecutor as TPool
+from concurrent.futures import as_completed
+
 
 import ping
 
 MAX_THREADS = 4 #number of threads
 DEFAULT_TIMEOUT_SEC = 1
 
+
+ARP_NAME = 'arp'
+ICMP_NAME = 'icmp'
+
 HOST_WIDTH = 18
 STATUS_WIDTH = 12
 MILISECOND = 'ms'
 STATUS_TEMPALE = '[{}]'
-HEDER = 'Host              Status'
-HEDER_WITH_TIME = 'Host              Status      Time'
+HEDER = 'Host              Status      Time'
+DEFAULT_TIME_OUTPUT = "---"
 
-
-def print_heder(time=False):
+def print_heder():
     """Print title for output"""
-    if time:
-        print(HEDER_WITH_TIME)
-    else:
-        print(HEDER)
+    print(HEDER)
 
 
-def print_result(host, status, time=''):
+def print_result(host, status, time):
     """Format and print result"""
     host = str(host).ljust(HOST_WIDTH)
     status = STATUS_TEMPALE.format(str(status)).ljust(STATUS_WIDTH)
     if time:
-        time = "   " + str(time) + MILISECOND
+        time = str(round(time*1000, 2)) + MILISECOND
+    else:
+        time = DEFAULT_TIME_OUTPUT
     print(host, status, time, sep='')
+
+
+def print_online(host, status, time):
+    if status == "ONLINE":
+        print_result(host, status, time)
 
 
 def ipnet(net_str):
@@ -96,25 +106,15 @@ def finalIPiter(rawList, networkObj):
             print('{} is not in {} network. It will be ignored.'.format(addrStr, str(networkObj)))
 
 
-def worker(ip, arp=False):
-    pinger = ping.Ping()
-    host, status, time = pinger.ping_host(ip)
-    print_result(host, status, time)
-
-
-def dummy_ping(ip):
-    return (ip, "online", 0.1)
-
-def main():
-    pass
-
-if __name__ == '__main__':
+def create_argparser():
     parser = argparse.ArgumentParser(description='Scans status of network hosts')
     parser.add_argument('ip_network',
                         type=ipnet,
                         help='IPv4 network address in form A.B.C.D/mask')
     parser.add_argument('-n',
+                        '--p_hostname',
                         action='store_true',
+                        default=False,
                         help='Show host IPs instead of names')
     parser.add_argument('-t',
                         type=int,
@@ -122,27 +122,43 @@ if __name__ == '__main__':
                         metavar='timeout',
                         help='Timeout in seconds')
     parser.add_argument('-a',
-                        action='store_true',
+                        '--ARP',
+                        action='store_const',
+                        default=ICMP_NAME,
+                        const=ARP_NAME,
                         help='Use ARP instead if ICMP')
     parser.add_argument('-r',
                         type=int,
                         metavar='refresh rate',
                         help='Refresh rate in seconds')
     parser.add_argument('-l',
+                        '--list',
                         type=rawIPlist,
                         metavar='list',
                         help='Path to list of host IPs to check')
-    parser.add_argument('-i',
-                        type=str,
-                        metavar='interface',
-                        help='Name if network interface')
+    return parser
 
-    #args_ = parser.parse_args()
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_THREADS) as ThreadManager:
-        future_to_ping = {ThreadManager.submit(dummy_ping, "192.168.0.{}".format(ip)) for ip in range(1, 6)}
-        for future in concurrent.futures.as_completed(future_to_ping):
-            res = future.result()
-            print_result(res[0], res[1], res[2]) 
+def main():
+    args = create_argparser().parse_args()
 
+    proto = args.ARP
+    pinger = ping.Ping(proto,
+                       args.t,
+                       args.p_hostname)
+
+    network = ipnet(args.ip_network)
+
+    print_heder()
+
+    with TPool() as TManager:
+        future_to_ping = [
+            TManager.submit(pinger.ping_host,str(ip)) for ip in network.hosts()
+        ]
+        for thread in as_completed(future_to_ping):
+            host, st, time = thread.result()
+            # print_result(host, st, time)
+            print_online(host, st, time)
+
+if __name__ == '__main__':
     main()
