@@ -142,7 +142,10 @@ if __name__ == '__main__':
     with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_THREADS) as ThreadManager:
         future_to_ping = {ThreadManager.submit(dummy_ping, "192.168.0.{}".format(ip)) for ip in range(1, 6)}
         for future in concurrent.futures.as_completed(future_to_ping):
-            res = future.result()
-            print_result(res[0], res[1], res[2]) 
-
+            try:
+                res = future.result()
+                print_result(res[0], res[1], res[2])
+            except Ping.PermissionException:
+                print('You need to have root rights!..')
+                break
     main()

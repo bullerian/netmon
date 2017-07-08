@@ -54,6 +54,12 @@ class Ping:
             dst=ip) / scapy.ICMP()
     }
 
+    # depending on protocol we use
+    func_to_use = {
+        ARP_NAME: scapy.srp,
+        ICMP_NAME: scapy.sr
+    }
+
     def __init__(self,
                  # iface,
                  proto_type=ICMP_NAME,
@@ -73,7 +79,7 @@ class Ping:
         self.__gen_packet = Ping.packets_generators[proto_type]
 
         # alias to scapy send_receive packet method
-        self.__send_recv = partial(scapy.srp,
+        self.__send_recv = partial(Ping.func_to_use[proto_type],
                                    # iface=self.__iface,
                                    filter=proto_type,
                                    timeout=self.__timeout,
@@ -118,4 +124,3 @@ class Ping:
             unanswer = unanswers[FIRST_INDEX]
             resp = unanswer[RESPONSE_INDEX]
             return host, OFFLINE, None
-
