@@ -42,16 +42,15 @@ class Ping:
     """This class is used for pinging certain ip address.
     It send and receive ICMP or ARP packets from the host.
     Return value of ping_host() method is tuple that contain
-    host ip, status and response time. This value returns to
-    the queue.
-    """
+    host ip, status and response time"""
 
     # dictionary of expressions used
     # to generate packets to ping host by ip
     packets_generators = {
         ARP_NAME: lambda ip: scapy.Ether(
             dst=BROADCATS_MAC) / scapy.ARP(pdst=ip),
-        ICMP_NAME: lambda ip: scapy.IP(
+        ICMP_NAME: lambda ip: scapy.Ether(
+            dst=BROADCATS_MAC) / scapy.IP(
             dst=ip) / scapy.ICMP()
     }
 
@@ -66,8 +65,7 @@ class Ping:
             - __timeout       - time to break down waiting for host response
             - __resolve_names - resolve host ip instead of it name
             - __gen_packet    - expression to generate packet due to
-                                protocol we use
-        """
+                                protocol we use"""
 
         self.__iface = iface
         self.__timeout = timeout
