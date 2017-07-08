@@ -66,10 +66,7 @@ def finalIPiter(rawList, networkObj):
             print('{} is not in {} network. It will be ignored.'.format(addrStr, str(networkObj)))
 
 
-def main(args):
-    pass
-
-if __name__ == '__main__':
+def main():
     parser = argparse.ArgumentParser(description='Scans status of network hosts')
     parser.add_argument('ip_network',
                         type=ipnet,
@@ -100,4 +97,5 @@ if __name__ == '__main__':
 
     args_ = parser.parse_args()
 
-    main(args_)
+if __name__ == '__main__':
+    main()
