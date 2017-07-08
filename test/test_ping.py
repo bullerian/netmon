@@ -16,7 +16,7 @@ class TestARPPing(unittest.TestCase):
     def test_arp_ping(self):
         """test ARP ping - compare to arping utilite"""
 
-        arp_ping = ARPPing('wlp2s0')
+        arp_ping = ARPPing()
 
         for ip in ipaddress.ip_network(TEST_NETWORK).hosts():
             try:
@@ -27,6 +27,7 @@ class TestARPPing(unittest.TestCase):
                 res = arp_ping.ping_host(str(ip))
             except PermissionException:
                 print('Need root previlegies')
+
             if res[STATUS_INDEX] == ONLINE:
                 self.assertTrue(ec == 0)
             else:

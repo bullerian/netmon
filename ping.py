@@ -150,4 +150,3 @@ class ICMPPing(Ping):
             unanswer = unanswers[FIRST_INDEX]
             resp = unanswer[RESPONSE_INDEX]
             return resp.dst, OFFLINE
-
