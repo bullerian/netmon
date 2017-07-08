@@ -4,7 +4,6 @@ import argparse
 import ipaddress
 import concurrent.futures
 
-import ping
 
 MAX_THREADS = 4 #number of threads
 DEFAULT_TIMEOUT_SEC = 1
@@ -95,52 +94,51 @@ def finalIPiter(rawList, networkObj):
         else:
             print('{} is not in {} network. It will be ignored.'.format(addrStr, str(networkObj)))
 
+
 def worker(ip, arp=False):
     pinger = ping.Ping()
     host, status, time = pinger.ping_host(ip)
     print_result(host, status, time)
+
+    
+def main(args):
     pass
 
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Scans status of network hosts')
+    parser.add_argument('ip_network',
+                        type=ipnet,
+                        help='IPv4 network address in form A.B.C.D/mask')
+    parser.add_argument('-n',
+                        action='store_true',
+                        help='Show host IPs instead of names')
+    parser.add_argument('-t',
+                        type=int,
+                        default=DEFAULT_TIMEOUT_SEC,
+                        metavar='timeout',
+                        help='Timeout in seconds')
+    parser.add_argument('-a',
+                        action='store_true',
+                        help='Use ARP instead if ICMP')
+    parser.add_argument('-r',
+                        type=int,
+                        metavar='refresh rate',
+                        help='Refresh rate in seconds')
+    parser.add_argument('-l',
+                        type=rawIPlist,
+                        metavar='list',
+                        help='Path to list of host IPs to check')
+    parser.add_argument('-i',
+                        type=str,
+                        metavar='interface',
+                        help='Name if network interface')
 
-def main():
-    # parser = argparse.ArgumentParser(description='Scans status of network hosts')
-    # parser.add_argument('ip_network',
-    #                     type=ipnet,
-    #                     help='IPv4 network address in form A.B.C.D/mask')
-    # parser.add_argument('-n',
-    #                     action='store_true',
-    #                     help='Show host IPs instead of names')
-    # parser.add_argument('-t',
-    #                     type=int,
-    #                     default=DEFAULT_TIMEOUT_SEC,
-    #                     metavar='timeout',
-    #                     help='Timeout in seconds')
-    # parser.add_argument('-a',
-    #                     action='store_true',
-    #                     help='Use ARP instead if ICMP')
-    # parser.add_argument('-r',
-    #                     type=int,
-    #                     metavar='refresh rate',
-    #                     help='Refresh rate in seconds')
-    # parser.add_argument('-l',
-    #                     type=rawIPlist,
-    #                     metavar='list',
-    #                     help='Path to list of host IPs to check')
-    # parser.add_argument('-i',
-    #                     type=str,
-    #                     metavar='interface',
-    #                     help='Name if network interface')
-    #
-    # args_ = parser.parse_args()
-
-    print_heder()
+    #args_ = parser.parse_args()
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_THREADS) as ThreadManager:
-        future_to_ping = {ThreadManager.submit(worker, "192.168.0.{}".format(ip+1)) for ip in range(5)}
+        future_to_ping = {ThreadManager.submit(worker, "192.168.0.{}".format(ip)) for ip in range(1, 6)}
         for future in concurrent.futures.as_completed(future_to_ping):
-            future.result()
+            res = future.result()
+            print_result(res[0], res[1], res[2]) 
 
-        print("   --- work is done ---   ") #u can append to a list or smth, whatever the output needs
-
-if __name__ == '__main__':
-    main()
+    main(args_)
