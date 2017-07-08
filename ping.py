@@ -51,8 +51,8 @@ class Ping:
     packets_generators = {
         ARP_NAME: lambda ip: scapy.Ether(
             dst=BROADCATS_MAC) / scapy.ARP(pdst=ip),
-        ICMP_NAME: lambda ip: scapy.Ether(
-            dst=BROADCATS_MAC) / scapy.IP(dst=ip) / scapy.ICMP()
+        ICMP_NAME: lambda ip: scapy.IP(
+            dst=ip) / scapy.ICMP()
     }
 
     def __init__(self,
