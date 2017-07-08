@@ -1,9 +1,36 @@
+#!/usr/bin/env python3
+
 import argparse
 import ipaddress
 import concurrent.futures
 
+
 MAX_THREADS = 4 #number of threads
 DEFAULT_TIMEOUT_SEC = 1
+
+HOST_WIDTH = 18
+STATUS_WIDTH = 12
+MILISECOND = 'ms'
+STATUS_TEMPALE = '[{}]'
+HEDER = 'Host              Status'
+HEDER_WITH_TIME = 'Host              Status      Time'
+
+
+def print_heder(time=False):
+    """Print title for output"""
+    if time:
+        print(HEDER_WITH_TIME)
+    else:
+        print(HEDER)
+
+
+def print_result(host, status, time=''):
+    """Format and print result"""
+    host = str(host).ljust(HOST_WIDTH)
+    status = STATUS_TEMPALE.format(str(status)).ljust(STATUS_WIDTH)
+    if time:
+        time = "   " + str(time) + MILISECOND
+    print(host, status, time, sep='')
 
 
 def ipnet(net_str):
@@ -68,11 +95,12 @@ def finalIPiter(rawList, networkObj):
             print('{} is not in {} network. It will be ignored.'.format(addrStr, str(networkObj)))
 
 
-#testing purposes
-def dummy_ping(ip):
-    return ("127.0.0."+str(ip), "online", 0)
+def worker(ip, arp=False):
+    pinger = ping.Ping()
+    host, status, time = pinger.ping_host(ip)
+    print_result(host, status, time)
 
-
+    
 def main(args):
     pass
 
@@ -108,9 +136,9 @@ if __name__ == '__main__':
     #args_ = parser.parse_args()
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_THREADS) as ThreadManager:
-        future_to_ping = {ThreadManager.submit(dummy_ping, ip): ip for ip in range(25)}
+        future_to_ping = {ThreadManager.submit(worker, "192.168.0.{}".format(ip)) for ip in range(1, 6)}
         for future in concurrent.futures.as_completed(future_to_ping):
             res = future.result()
-            print(res) #u can append to a list or smth, whatever the output needs
+            print_result(res[0], res[1], res[2]) 
 
     main(args_)
