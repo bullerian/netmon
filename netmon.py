@@ -1,14 +1,14 @@
 import argparse
 import ipaddress
-import scapy.all as scapy
 
 DEFAULT_TIMEOUT_SEC = 1
 
 
 class Utilities:
+    IPV4 = 4
 
     @staticmethod
-    def ipnet(net_str):
+    def _ipnet(net_str):
         """
         This function is used for argparse module to verify validness of
         entered network. Valid networks are IPv4 networks in form
@@ -17,19 +17,19 @@ class Utilities:
         :return: ipaddress.ip_network object or raises exception on fail
         """
         try:
-            thenet = ipaddress.ip_network(net_str)
+            the_net = ipaddress.ip_network(net_str)
         except ValueError:
-            msg = '%r is not a valid IP network address' % net_str
+            msg = '{} is not a valid IP network address'.format(net_str)
             raise argparse.ArgumentTypeError(msg)
 
-        if not thenet.version == 4:
+        if the_net.version != Utilities.IPV4:
             msg = 'Only IPv4 addresses are supported'
             raise argparse.ArgumentTypeError(msg)
 
-        return thenet
+        return the_net
 
     @staticmethod
-    def raw_ip_list(ip_list_path):
+    def _raw_ip_list(ip_list_path):
         """
         Import IP adresses from file as list.
         Duplicate checking can be added here.
@@ -41,103 +41,122 @@ class Utilities:
 
         return addrList
 
+    @staticmethod
+    def input_parser():
+        parser = argparse.ArgumentParser(
+            description='Scans status of network hosts')
+        parser.add_argument('ip_network',
+                            type=Utilities._ipnet,
+                            help='IPv4 network address in form A.B.C.D/mask')
+        parser.add_argument('-n',
+                            action='store_true',
+                            help='Show host IPs instead of names')
+        parser.add_argument('-t',
+                            '--timeout',
+                            type=int,
+                            default=DEFAULT_TIMEOUT_SEC,
+                            metavar='timeout',
+                            help='Timeout in seconds')
+        parser.add_argument('-a',
+                            '--arp',
+                            action='store_true',
+                            help='Use ARP instead if ICMP')
+        parser.add_argument('-r',
+                            '--refresh',
+                            type=int,
+                            metavar='refresh rate',
+                            help='Refresh rate in seconds')
+        parser.add_argument('-l',
+                            '--IP_list',
+                            type=Utilities._raw_ip_list,
+                            metavar='list',
+                            help='Path to list of host IPs to check')
+        parser.add_argument('-i',
+                            type=str,
+                            metavar='interface',
+                            help='Name if network interface')
+
+        return parser.parse_args()
+
 
 class AddressIter:
+    """
+    Instance of this class will return all valid IPv4 addresses in string
+    representation. Address related errors are printed unless verbose is set to
+    False.
+    """
+
     def __init__(self, raw_list, network_obj, verbose=True):
+        """
+        Initializes object
+        :param raw_list: list of probable IP addresses strings
+        :param network_obj: network object
+        :param verbose: print error output
+        """
         self._raw_ip_list = raw_list
         self._ip_net_obj = network_obj
         self._verbose = verbose
+        self.__index = 0
 
     def __iter__(self):
-        if not rawList:
-            return networkObj.hosts()
+        """
+        If there are no host IP list then return all valid host IPs in network.
+        Else return only those addresses that are in network.
+        :return:
+        """
+        if not self._raw_ip_list:
+            return self._ip_net_obj.hosts()
         else:
             return self
 
     def __next__(self):
-        x = list()
-        x.
-        if self._raw_ip_list
-        for addrStr in rawList:
+        while self.__index < len(self._raw_ip_list):
+            addr_str = self._raw_ip_list[self.__index]
+
             try:
-                addrsObj = ipaddress.ip_address(addrStr)
-            except ValueError:
-                print(
-                    '%s is not valid IPv4 address. It will be ignored.'.format(
-                        addrStr))
+                self.__index += 1
+                addrs_obj = ipaddress.ip_address(addr_str)
+            except (ValueError, UnboundLocalError):
+                self.__print_out('"{}" is not a valid IPv4 address. '
+                                 'It will be ignored.'.format(addr_str))
+                continue
 
-            if addrsObj in networkObj and addrStr != networkObj.broadcast_address:
-                # TODO: this generator has to be replaced by iterator
-                yield addrsObj
-            else:
-                print('{} is not in {} network. It will be ignored.'.format(
-                    addrStr, str(networkObj)))
+            if not self.is_acceptable(addrs_obj):
+                self.__print_out('"{}" is not in network "{}". It will be '
+                                 'ignored.'.format(addr_str, self._ip_net_obj))
+                continue
 
+            return addr_str
 
-    def final_ip_iter(self):
+        self.__index = 0
+        raise StopIteration
+
+    def __print_out(self, text):
         """
-        Should return intersection of IPs in rawList and networkObject in form
-        of ipaddress.ip_address object iterator
-        (or list iterator). Drops invalid strings or adresses.
-        If rawList is not provided returns ipaddress.ip_address object
-        iterator generated from networkObj.
-        NOTE: network itself and broadcast IP are excluded from list
+        Prints text if self._verbose is set
+        :param text:
         :return:
         """
-        if not rawList:
-            return networkObj.hosts()
+        if self._verbose:
+            print(text)
 
-        for addrStr in rawList:
-            try:
-                addrsObj = ipaddress.ip_address(addrStr)
-            except ValueError:
-                print(
-                    '%s is not valid IPv4 address. It will be ignored.'.format(
-                        addrStr))
-
-            if addrsObj in networkObj and addrStr != networkObj.broadcast_address:
-                # TODO: this generator has to be replaced by iterator
-                yield addrsObj
-            else:
-                print('{} is not in {} network. It will be ignored.'.format(
-                    addrStr, str(networkObj)))
+    def is_acceptable(self, ip_obj):
+        """
+        If ip_obj is not None and it is in network and it is not broadcast
+        address then return True
+        :param ip_obj: IP class instance
+        :return: True or False
+        """
+        return ip_obj and ip_obj in self._ip_net_obj and ip_obj != \
+                                        self._ip_net_obj.broadcast_address
 
 
-def main(args):
-    pass
+def main():
+    parsed_args = Utilities.input_parser()
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Scans status of network hosts')
-    parser.add_argument('ip_network',
-                        type=Utilities.ipnet,
-                        help='IPv4 network address in form A.B.C.D/mask')
-    parser.add_argument('-n',
-                        action='store_true',
-                        help='Show host IPs instead of names')
-    parser.add_argument('-t',
-                        '--timeout',
-                        type=int,
-                        default=DEFAULT_TIMEOUT_SEC,
-                        metavar='timeout',
-                        help='Timeout in seconds')
-    parser.add_argument('-a',
-                        '--arp',
-                        action='store_true',
-                        help='Use ARP instead if ICMP')
-    parser.add_argument('-r',
-                        '--refresh',
-                        type=int,
-                        metavar='refresh rate',
-                        help='Refresh rate in seconds')
-    parser.add_argument('-l',
-                        type=Utilities.raw_ip_list,
-                        metavar='list',
-                        help='Path to list of host IPs to check')
-    parser.add_argument('-i',
-                        type=str,
-                        metavar='interface',
-                        help='Name if network interface')
+    # object for iteration
+    ip_iter_obj = AddressIter(parsed_args.IP_list, parsed_args.ip_network)
 
-    args_ = parser.parse_args()
 
-    main(args_)
+
+
