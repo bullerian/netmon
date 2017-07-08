@@ -4,6 +4,7 @@ import argparse
 import ipaddress
 import concurrent.futures
 
+import ping
 
 MAX_THREADS = 4 #number of threads
 DEFAULT_TIMEOUT_SEC = 1
@@ -100,8 +101,11 @@ def worker(ip, arp=False):
     host, status, time = pinger.ping_host(ip)
     print_result(host, status, time)
 
-    
-def main(args):
+
+def dummy_ping(ip):
+    return (ip, "online", 0.1)
+
+def main():
     pass
 
 if __name__ == '__main__':
@@ -136,9 +140,9 @@ if __name__ == '__main__':
     #args_ = parser.parse_args()
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_THREADS) as ThreadManager:
-        future_to_ping = {ThreadManager.submit(worker, "192.168.0.{}".format(ip)) for ip in range(1, 6)}
+        future_to_ping = {ThreadManager.submit(dummy_ping, "192.168.0.{}".format(ip)) for ip in range(1, 6)}
         for future in concurrent.futures.as_completed(future_to_ping):
             res = future.result()
             print_result(res[0], res[1], res[2]) 
 
-    main(args_)
+    main()
