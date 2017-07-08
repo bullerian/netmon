@@ -7,7 +7,6 @@ import sys
 import logging
 logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
 import scapy.all as scapy
-from abc import ABC, abstractmethod
 from functools import partial
 from socket import gethostbyaddr, herror
 
@@ -38,57 +37,49 @@ class PermissionException(Exception):
     pass
 
 
-class Ping(ABC):
-    """This class is a base class for sending request packets
-    and receiveing response packets from pinged host and it puts
-    tuple with host ip, status (ONLINE/OFFLINE) and response time
-    to the queue"""
-
-    def __init__(self, iface, timeout, resolve_names=False):
-        """init timeout parametr"""
-
-        self._timeout = timeout
-        self._iface = iface
-        self._resolve_names = resolve_names
-
-    @abstractmethod
-    def ping_host(self, ip):
-        """abstract method for ping"""
-
-        pass
-
-
-class ARPPing(Ping):
-    """Ping using ARP protocol"""
-
+class Ping:
+    """This class is used for pinging certain ip address.
+    It send and receive ICMP or ARP packets from the host.
+    Return value of ping_host() method is tuple that contain
+    host ip, status and response time. This value returns to 
+    the queue.
+    """
     def __init__(self, iface, timeout=DEFAULT_TIMEOUT, resolve_names=False):
-        """init queue and timeout; form a template of Ethernet packet
-        and make alias for scapy.srp function"""
-
-        # call base Ping class constructor
-        super().__init__(iface, timeout, resolve_names)
-
-        # form a template packet
+        """Constructor of Ping class objects initialize several private 
+        variables :
+            - __timeout       - time to break down waiting for host response
+            - __iface         - interface that will be used to send packets
+            - __resolve_names - resolve host ip instead of it name
+            - __packet_tem... - template of packet structure at L2
+        """
+        self.__timeout = timeout
+        self.__iface = iface
+        self.__resolve_names = resolve_names
         self.__packet_template = scapy.Ether(dst=BROADCATS_MAC)
 
-        # alias for scapy.srp
-        self.__send_recv_ARP = partial(
-            scapy.srp,
-            iface=self._iface,
-            filter=ARP_NAME,
-            timeout=self._timeout,
-            verbose=DEFAULT_SCAPY_VERBOUS)
-
-    def ping_host(self, ip):
-        """method to create ARP packet, send and receive response
+    def ping_host(self, ip, proto_type=ICMP_NAME):
+        """method to create ICMP or ARP packet, send and receive response
         from the host with @ip address with timeout"""
 
-        # form an ARP packet
-        arp_packet = self.__packet_template / scapy.ARP(pdst=ip)
+        # form an ICMP or ARP packet
+        if proto_type == ICMP_NAME:        
+            packet = self.__packet_template / scapy.IP(dst=ip) / scapy.ICMP()
+        elif proto_type == ARP_NAME:
+            packet = self.__packet_template / scapy.ARP(pdst=ip)      
+        else:
+            print(" Incorrect proto_type in ping_host() method.")
+            return
+
+        # alias to scapy send_receive packet method
+        self.__send_recv = partial(scapy.srp,
+                                   iface=self.__iface,
+                                   filter=proto_type,
+                                   timeout=self.__timeout,
+                                   verbose=DEFAULT_SCAPY_VERBOUS)
 
         try:
             # send and wait for response
-            answers, unanswers = self.__send_recv_ARP(arp_packet)
+            answers, unanswers = self.__send_recv(packet)
         except PermissionError:
             raise PermissionException
 
@@ -118,63 +109,3 @@ class ARPPing(Ping):
             resp = unanswer[RESPONSE_INDEX]
             return host, OFFLINE, None
 
-
-class ICMPPing(Ping):
-    """Ping using ICMP protocol"""
-
-    def __init__(self, iface, timeout=DEFAULT_TIMEOUT, resolve_names=False):
-        """init queue and timeout; form a template of Ethernet packet
-        and make alias for scapy.srp function"""
-
-        # call base Ping class constructor
-        super().__init__(iface, timeout, resolve_names)
-
-        # form a template packet
-        self.__packet_template = scapy.Ether(dst=BROADCATS_MAC)
-
-        # alias for scapy.srp
-        self.__send_recv_ICMP = partial(
-            scapy.srp,
-            iface=self._iface,
-            filter=ICMP_NAME,
-            timeout=self._timeout,
-            verbose=DEFAULT_SCAPY_VERBOUS)
-
-    def ping_host(self, ip):
-        """method to create ICMP packet, send and receive response
-        from the host with @io address with timeout"""
-
-        # form an ICMP packet
-        icmp_packet = self.__packet_template / scapy.IP(dst=ip) / scapy.ICMP()
-
-        try:
-            # send and wait for response
-            answers, unanswers = self.__send_recv_ICMP(icmp_packet)
-        except PermissionError:
-            raise PermissionException
-
-        if self._resolve_names:
-            # resolve host name by ip if resolve_names
-            # flag was set
-            try:
-                host = gethostbyaddr(ip)[HOST_NAME_INDEX]
-            except herror:
-                host = ip
-        else:
-            # otherwise show ip
-            host = ip
-
-        if answers:
-            answer = answers[FIRST_INDEX]
-            # get the request object
-            req = answer[REQUEST_INDEX]
-            # get the response object
-            resp = answer[RESPONSE_INDEX]
-            # calculate response time and round it
-            delta = resp.time - req.sent_time
-            return host, ONLINE, delta
-        else:
-            # return unansered results
-            unanswer = unanswers[FIRST_INDEX]
-            resp = unanswer[RESPONSE_INDEX]
-            return host, OFFLINE
