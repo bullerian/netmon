@@ -1,6 +1,10 @@
 import argparse
 import ipaddress
+import concurrent.futures
 
+import ping
+
+MAX_THREADS = 4 #number of threads
 DEFAULT_TIMEOUT_SEC = 1
 
 HOST_WIDTH = 18
@@ -90,6 +94,10 @@ def finalIPiter(rawList, networkObj):
             print('{} is not in {} network. It will be ignored.'.format(addrStr, str(networkObj)))
 
 
+def worker(ip, arp=False):
+    pass
+
+
 def main():
     parser = argparse.ArgumentParser(description='Scans status of network hosts')
     parser.add_argument('ip_network',
@@ -120,6 +128,12 @@ def main():
                         help='Name if network interface')
 
     args_ = parser.parse_args()
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_THREADS) as ThreadManager:
+        future_to_ping = {ThreadManager.submit(dummy_ping, ip): ip for ip in range(25)}
+        for future in concurrent.futures.as_completed(future_to_ping):
+            res = future.result()
+            print(res) #u can append to a list or smth, whatever the output needs
 
 if __name__ == '__main__':
     main()
