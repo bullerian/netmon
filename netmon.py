@@ -2,7 +2,7 @@
 
 import argparse
 import ipaddress
-import concurrent.futures
+from time import sleep
 from concurrent.futures import ThreadPoolExecutor as TPool
 from concurrent.futures import as_completed
 
@@ -18,7 +18,7 @@ HOST_WIDTH = 18
 STATUS_WIDTH = 12
 MILISECOND = 'ms'
 STATUS_TEMPALE = '[{}]'
-HEDER = 'Host              Status      Time'
+HEDER = '\n\nHost              Status      Time'
 DEFAULT_TIME_OUTPUT = "---"
 
 def print_heder():
@@ -37,7 +37,7 @@ def print_result(host, status, time):
     print(host, status, time, sep='')
 
 
-def print_online(host, status, time):
+def print_only_online(host, status, time):
     if status == "ONLINE":
         print_result(host, status, time)
 
@@ -105,12 +105,14 @@ class Utilities:
         parser.add_argument('-r',
                             '--refresh',
                             type=int,
+                            default=0,
                             metavar='refresh rate',
                             help='Refresh rate in seconds')
         parser.add_argument('-l',
-                            '--IP_list',
+                            '--list',
                             type=Utilities._raw_ip_list,
                             metavar='list',
+                            default=None,
                             help='Path to list of host IPs to check')
 
         return parser.parse_args()
@@ -122,7 +124,7 @@ class AddressIter:
     representation. Address related errors are printed unless verbose is set to
     False.
     """
-    def __init__(self, raw_list, network_obj, verbose=True):
+    def __init__(self,  raw_list, network_obj,  verbose=True):
         """
         Initializes object
         :param raw_list: list of probable IP addresses strings
@@ -191,31 +193,28 @@ def main():
     args = Utilities.input_parser()
 
     # object for iteration
-    ip_iter_obj = AddressIter(args.IP_list, args.ip_network)
+    ip_iter_obj = AddressIter(args.list, args.ip_network)
 
     proto = args.ARP
     pinger = ping.Ping(proto,
                        args.timeout,
                        args.p_hostname)
 
-    network = args.ip_network
-
-    print_heder()
-
-    with TPool() as TManager:
-        future_to_ping = [
-            TManager.submit(pinger.ping_host, str(ip)) for ip in
-            network.hosts()
-        ]
-        for thread in as_completed(future_to_ping):
-            try:
-                host, st, time = thread.result()
-                # print_result(host, st, time)
-                print_online(host, st, time)
-            except ping.PermissionException:
-                print('You need to have root rights to run this.')
-                break
-
+    while args.refresh:
+        print_heder()
+        with TPool() as TManager:
+            future_to_ping = [
+                TManager.submit(pinger.ping_host, str(ip)) for ip in ip_iter_obj
+            ]
+            for thread in as_completed(future_to_ping):
+                try:
+                    host, st, time = thread.result()
+                    print_result(host, st, time)
+                    # print_only_online(host, st, time)
+                except ping.PermissionException:
+                    print('You need to have root rights to run this.')
+                    break
+        sleep(args.refresh)
 
 if __name__ == '__main__':
     main()
