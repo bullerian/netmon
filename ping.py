@@ -2,6 +2,7 @@
 
 import os
 import sys
+import random
 # disable scapy warning with IPv6
 # sorry PEP8 (
 import logging
@@ -50,7 +51,7 @@ class Ping:
         ARP_NAME: lambda ip: scapy.Ether(
             dst=BROADCATS_MAC) / scapy.ARP(pdst=ip),
         ICMP_NAME: lambda ip: scapy.IP(
-            dst=ip) / scapy.ICMP()
+            dst=ip) / scapy.ICMP(id=random.randint(1,2**16))
     }
 
     # depending on protocol we use

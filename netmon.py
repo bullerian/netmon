@@ -84,7 +84,7 @@ class Utilities:
         with (open(ip_list_path, 'r')) as in_file:
             addrList = in_file.read().split()
 
-        return addrList
+        return list(set(addrList))
 
     @staticmethod
     def input_parser():
@@ -197,7 +197,7 @@ class AddressIter:
 
 
 def kill_myself(signum, frame):
-    os.kill(os.getpid(), signal.SIGTERM)
+    os.kill(os.getpid(), signal.SIGKILL)
 
 
 def main():
