@@ -2,6 +2,8 @@
 
 import argparse
 import ipaddress
+import os
+import signal
 from time import sleep
 from concurrent.futures import ThreadPoolExecutor as TPool
 from concurrent.futures import as_completed
@@ -9,29 +11,34 @@ from concurrent.futures import as_completed
 
 import ping
 
-MAX_THREADS = 4 #number of threads
+MAX_THREADS = 255 #number of threads
 DEFAULT_TIMEOUT_SEC = 1
 ARP_NAME = 'arp'
 ICMP_NAME = 'icmp'
 
-HOST_WIDTH = 18
+DEFAULT_REFRESH = 0
+TO_MILLISECOND = 1000
+NUMBERS_AFTER_COMA = 2
+HOST_WIDTH = 25
 STATUS_WIDTH = 12
-MILISECOND = 'ms'
-STATUS_TEMPALE = '[{}]'
-HEDER = '\n\nHost              Status      Time'
+MILLISECOND = 'ms'
+STATUS_TEMPLATE = '[{}]'
+HEADER_TEMPLATE = '{}\t'
+HEADER = '\nHost                     \tStatus      Time'
 DEFAULT_TIME_OUTPUT = "---"
 
-def print_heder():
+
+def print_header():
     """Print title for output"""
-    print(HEDER)
+    print(HEADER)
 
 
 def print_result(host, status, time):
     """Format and print result"""
-    host = str(host).ljust(HOST_WIDTH)
-    status = STATUS_TEMPALE.format(str(status)).ljust(STATUS_WIDTH)
+    host = HEADER_TEMPLATE.format(str(host).ljust(HOST_WIDTH))
+    status = STATUS_TEMPLATE.format(str(status)).ljust(STATUS_WIDTH)
     if time:
-        time = str(round(time*1000, 2)) + MILISECOND
+        time = str(round(time * TO_MILLISECOND, NUMBERS_AFTER_COMA)) + MILLISECOND
     else:
         time = DEFAULT_TIME_OUTPUT
     print(host, status, time, sep='')
@@ -105,7 +112,7 @@ class Utilities:
         parser.add_argument('-r',
                             '--refresh',
                             type=int,
-                            default=0,
+                            default=DEFAULT_REFRESH,
                             metavar='refresh rate',
                             help='Refresh rate in seconds')
         parser.add_argument('-l',
@@ -189,7 +196,13 @@ class AddressIter:
                                         self._ip_net_obj.broadcast_address
 
 
+def kill_myself(signum, frame):
+    os.kill(os.getpid(), signal.SIGTERM)
+
+
 def main():
+    signal.signal(signal.SIGINT, kill_myself)
+    signal.signal(signal.SIGTERM, kill_myself)
     args = Utilities.input_parser()
 
     # object for iteration
@@ -199,22 +212,31 @@ def main():
     pinger = ping.Ping(proto,
                        args.timeout,
                        args.p_hostname)
-
-    while args.refresh:
-        print_heder()
+    while True:
+        print_header()
         with TPool() as TManager:
             future_to_ping = [
                 TManager.submit(pinger.ping_host, str(ip)) for ip in ip_iter_obj
             ]
-            for thread in as_completed(future_to_ping):
-                try:
-                    host, st, time = thread.result()
-                    print_result(host, st, time)
-                    # print_only_online(host, st, time)
-                except ping.PermissionException:
-                    print('You need to have root rights to run this.')
+            try:
+                for thread in as_completed(future_to_ping):
+                    try:
+                        host, st, time = thread.result()
+                        print_result(host, st, time)
+                        # print_only_online(host, st, time)
+                    except ping.PermissionException:
+                        print('You need to have root rights to run this.')
+                        break
+            except KeyboardInterrupt:
+                print('here')
+                for thread in future_to_ping:
+                    thread.cancel()
                     break
-        sleep(args.refresh)
+        if args.refresh:
+            sleep(args.refresh)
+        else:
+            break
+
 
 if __name__ == '__main__':
     main()
